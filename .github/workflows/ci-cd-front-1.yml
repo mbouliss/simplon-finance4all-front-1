@@ -161,7 +161,7 @@ jobs:
         run: npm test -- --coverage --watchAll=false
 
       - name: SonarQube Scan
-        uses: sonarqube-quality-gate-action@master
+        uses: sonarsource/sonarqube-quality-gate-action@master
         with:
           scanMetadataReportFile: target/sonar/report-task.txt
         env:
@@ -191,7 +191,7 @@ jobs:
       - name: Load Docker image
         run: docker load < docker-image-front-1.tar
 
-      - name: Login to DockerHub
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -233,8 +233,8 @@ jobs:
     needs: [docker-push, nexus-upload]
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Deploy notification
+      - name: Deployment notification
         run: |
           echo "✅ Deployment successful for simplon-finance4all-front-1"
-          echo "🐳 Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
-          echo "📦 Nexus artifact: simplon-finance4all-front-1-${{ github.sha }}.tar.gz"
+          echo "🐳 Docker Image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+          echo "📦 Nexus Artifact: simplon-finance4all-front-1-${{ github.sha }}.tar.gz"
