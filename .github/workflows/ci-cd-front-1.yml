@@ -87,8 +87,8 @@ jobs:
         with:
           name: build-artifacts-front-1
           path: |
-            build/
             dist/
+            package.json
 
   docker-build:
     name: 🐳 Docker Build
@@ -260,7 +260,16 @@ jobs:
 
       - name: Create deployment package
         run: |
-          tar -czf simplon-finance4all-front-1-${{ github.sha }}.tar.gz build/ dist/ package.json
+          # Vérifier quels dossiers existent
+          ls -la
+          if [ -d "dist" ]; then
+            tar -czf simplon-finance4all-front-1-${{ github.sha }}.tar.gz dist/ package.json
+          elif [ -d "build" ]; then
+            tar -czf simplon-finance4all-front-1-${{ github.sha }}.tar.gz build/ package.json
+          else
+            echo "Erreur: Ni dist/ ni build/ trouvé"
+            exit 1
+          fi
 
       - name: Upload to Nexus Repository
         run: |
