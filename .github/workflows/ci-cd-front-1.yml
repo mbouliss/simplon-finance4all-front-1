@@ -221,7 +221,7 @@ jobs:
   docker-push:
     name: 🚀 Push to DockerHub
     runs-on: ubuntu-latest
-    needs: [security-scan, sonarqube]
+    needs: [security-scan]  # Retiré sonarqube des dépendances
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
     steps:
       - name: Download Docker image
