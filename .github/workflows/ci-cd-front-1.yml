@@ -208,7 +208,7 @@ jobs:
           echo "SONAR_TOKEN is set: $([ -n '${{ secrets.SONAR_TOKEN }}' ] && echo 'Yes' || echo 'No')"
 
       - name: Analyze with SonarQube
-        uses: sonarsource/sonarqube-scan-action@v2.0.2
+        uses: sonarsource/sonarqube-scan-action@v5.3.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -227,7 +227,7 @@ jobs:
 
       - name: SonarQube Quality Gate check
         id: sonarqube-quality-gate-check
-        uses: sonarsource/sonarqube-quality-gate-action@v1.3.0
+        uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
