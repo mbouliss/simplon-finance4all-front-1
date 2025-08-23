@@ -1,24 +1,24 @@
-# Multi-stage build pour optimiser l'image finale
-FROM node:18-alpine AS builder
+# Stage de build
+FROM docker.io/library/node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copier les fichiers de configuration
+# Copier les fichiers de configuration npm
 COPY package*.json ./
 
-# Installer les dépendances
-RUN npm ci --only=production
+# Installer TOUTES les dépendances (y compris devDependencies pour vite)
+RUN npm ci
 
 # Copier le code source
 COPY . .
 
-# Builder l'application
+# Construire l'application
 RUN npm run build
 
 # Stage de production
-FROM nginx:alpine
+FROM docker.io/library/nginx:alpine
 
-# Copier la configuration nginx personnalisée
+# Copier la configuration nginx
 COPY <<EOF /etc/nginx/nginx.conf
 events {
     worker_connections 1024;
@@ -28,22 +28,14 @@ http {
     include       /etc/nginx/mime.types;
     default_type  application/octet-stream;
     
-    sendfile        on;
-    keepalive_timeout  65;
-    
     server {
-        listen       80;
-        server_name  localhost;
+        listen 80;
+        server_name localhost;
         
         location / {
-            root   /usr/share/nginx/html;
-            index  index.html index.htm;
+            root /usr/share/nginx/html;
+            index index.html index.htm;
             try_files \$uri \$uri/ /index.html;
-        }
-        
-        error_page   500 502 503 504  /50x.html;
-        location = /50x.html {
-            root   /usr/share/nginx/html;
         }
     }
 }
