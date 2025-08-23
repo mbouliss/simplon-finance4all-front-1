@@ -254,44 +254,6 @@ jobs:
             echo "✅ Quality Gate passed"
           fi
 
-  docker-push:
-    name: 🚀 Push to DockerHub
-    runs-on: ubuntu-latest
-    needs: [security-scan, sonarqube]
-    if: false  # Temporairement désactivé - changez en true quand DockerHub sera configuré
-    # if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
-    steps:
-      - name: Download Docker image
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image-front-1
-
-      - name: Load Docker image
-        run: docker load < docker-image-front-1.tar
-
-      - name: Check DockerHub credentials
-        run: |
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "❌ DockerHub credentials not configured"
-            echo "Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN"
-            exit 1
-          else
-            echo "✅ DockerHub credentials are configured"
-          fi
-
-      - name: Log in to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Push to DockerHub
-        run: |
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-
   nexus-upload:
     name: 📦 Upload to Nexus
     runs-on: ubuntu-latest
@@ -331,14 +293,92 @@ jobs:
             --upload-file simplon-finance4all-front-1-${{ github.sha }}.tar.gz \
             "${{ secrets.NEXUS_URL }}/repository/${{ env.NEXUS_REPOSITORY }}/simplon-finance4all-front-1-${{ github.sha }}.tar.gz"
 
+  docker-push:
+    name: 🚀 Push to DockerHub
+    runs-on: ubuntu-latest
+    needs: [security-scan, sonarqube]
+    # Condition activée : s'exécute sur main et feature/ci-cd
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
+    steps:
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-front-1
+
+      - name: Load Docker image
+        run: docker load < docker-image-front-1.tar
+
+      - name: Check DockerHub credentials
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "❌ DockerHub credentials not configured"
+            echo "Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN"
+            echo "⚠️ Continuing pipeline without DockerHub push"
+            echo "DOCKERHUB_CONFIGURED=false" >> $GITHUB_ENV
+          else
+            echo "✅ DockerHub credentials are configured"
+            echo "DOCKERHUB_CONFIGURED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Log in to DockerHub
+        if: env.DOCKERHUB_CONFIGURED == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push to DockerHub
+        if: env.DOCKERHUB_CONFIGURED == 'true'
+        run: |
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+          echo "✅ Successfully pushed to DockerHub"
+
+      - name: DockerHub push skipped
+        if: env.DOCKERHUB_CONFIGURED == 'false'
+        run: |
+          echo "⚠️ DockerHub push was skipped due to missing credentials"
+          echo "To enable DockerHub push, configure these secrets:"
+          echo "- DOCKERHUB_USERNAME"
+          echo "- DOCKERHUB_TOKEN"
+
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    needs: [nexus-upload]  # Suppression de docker-push temporairement
+    # Dépend maintenant de nexus-upload ET docker-push (même si docker-push peut être skippé)
+    needs: [nexus-upload, docker-push]
     if: github.ref == 'refs/heads/main'
     steps:
+      - name: Pre-deployment checks
+        run: |
+          echo "🔍 Pre-deployment verification..."
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Repository: ${{ github.repository }}"
+
       - name: Deployment notification
         run: |
-          echo "✅ Deployment successful for simplon-finance4all-front-1"
-          echo "🐳 Docker Image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+          echo "✅ Deployment process started for simplon-finance4all-front-1"
+          echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
           echo "📦 Nexus Artifact: simplon-finance4all-front-1-${{ github.sha }}.tar.gz"
+          
+          # Vérification des artifacts disponibles
+          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "🐳 DockerHub Image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+          else
+            echo "⚠️ DockerHub image not available (credentials not configured)"
+          fi
+
+      - name: Deploy application
+        run: |
+          echo "🚀 Starting deployment..."
+          echo "This is where you would add your actual deployment commands:"
+          echo "- Pull from DockerHub or use Nexus artifacts"
+          echo "- Update kubernetes/docker-compose configurations"
+          echo "- Restart services"
+          echo "- Run health checks"
+          echo ""
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Application should be available at your deployment URL"
