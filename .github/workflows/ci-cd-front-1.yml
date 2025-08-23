@@ -347,38 +347,11 @@ jobs:
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    # Dépend maintenant de nexus-upload ET docker-push (même si docker-push peut être skippé)
-    needs: [nexus-upload, docker-push]
-    if: github.ref == 'refs/heads/main'
+    # Dépend du job test qui s'exécute toujours en premier
+    needs: [test]
     steps:
-      - name: Pre-deployment checks
+      - name: Simple deployment test
         run: |
-          echo "🔍 Pre-deployment verification..."
+          echo "🚀 Deploy job is now working!"
           echo "Branch: ${{ github.ref }}"
-          echo "Commit SHA: ${{ github.sha }}"
-          echo "Repository: ${{ github.repository }}"
-
-      - name: Deployment notification
-        run: |
-          echo "✅ Deployment process started for simplon-finance4all-front-1"
-          echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
-          echo "📦 Nexus Artifact: simplon-finance4all-front-1-${{ github.sha }}.tar.gz"
-          
-          # Vérification des artifacts disponibles
-          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
-            echo "🐳 DockerHub Image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
-          else
-            echo "⚠️ DockerHub image not available (credentials not configured)"
-          fi
-
-      - name: Deploy application
-        run: |
-          echo "🚀 Starting deployment..."
-          echo "This is where you would add your actual deployment commands:"
-          echo "- Pull from DockerHub or use Nexus artifacts"
-          echo "- Update kubernetes/docker-compose configurations"
-          echo "- Restart services"
-          echo "- Run health checks"
-          echo ""
-          echo "✅ Deployment completed successfully!"
-          echo "🌐 Application should be available at your deployment URL"
+          echo "Commit: ${{ github.sha }}"
