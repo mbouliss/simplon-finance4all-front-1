@@ -297,7 +297,6 @@ jobs:
     name: 🚀 Push to DockerHub
     runs-on: ubuntu-latest
     needs: [security-scan, sonarqube]
-    # Condition activée : s'exécute sur main et feature/ci-cd
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
     steps:
       - name: Download Docker image
@@ -313,12 +312,18 @@ jobs:
           if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
             echo "❌ DockerHub credentials not configured"
             echo "Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN"
-            echo "⚠️ Continuing pipeline without DockerHub push"
             echo "DOCKERHUB_CONFIGURED=false" >> $GITHUB_ENV
           else
             echo "✅ DockerHub credentials are configured"
             echo "DOCKERHUB_CONFIGURED=true" >> $GITHUB_ENV
           fi
+
+      # 🔍 Étape debug ajoutée pour vérifier que la variable est bien définie
+      - name: Debug DOCKERHUB_CONFIGURED
+        run: |
+          echo "DOCKERHUB_CONFIGURED=$DOCKERHUB_CONFIGURED"
+          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" | sed 's/./*/g'
+          echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" | sed 's/./*/g'
 
       - name: Log in to DockerHub
         if: env.DOCKERHUB_CONFIGURED == 'true'
@@ -343,6 +348,7 @@ jobs:
           echo "To enable DockerHub push, configure these secrets:"
           echo "- DOCKERHUB_USERNAME"
           echo "- DOCKERHUB_TOKEN"
+
 
   deploy:
     name: 🚀 Deploy
