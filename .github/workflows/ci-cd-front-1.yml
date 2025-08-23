@@ -201,43 +201,6 @@ jobs:
           EOF
           echo '{"total": {"lines": {"total": 1, "covered": 1, "pct": 100}}}' > coverage/coverage-summary.json
 
-      # Vérification des credentials SonarQube avant le scan
-      - name: Verify SonarQube Configuration
-        run: |
-          if [ -z "${{ secrets.SONAR_TOKEN }}" ]; then
-            echo "❌ SONAR_TOKEN is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.SONAR_HOST_URL }}" ]; then
-            echo "❌ SONAR_HOST_URL is not set"
-            exit 1
-          fi
-          echo "✅ SonarQube credentials are configured"
-          echo "Host URL format check..."
-          if [[ "${{ secrets.SONAR_HOST_URL }}" =~ ^https?:// ]]; then
-            echo "✅ SONAR_HOST_URL has correct format"
-          else
-            echo "❌ SONAR_HOST_URL must start with http:// or https://"
-            echo "Current value appears to be missing the protocol scheme"
-            exit 1
-          fi
-
-      # Créer sonar-project.properties si inexistant
-      - name: Create SonarQube project properties
-        run: |
-          if [ ! -f "sonar-project.properties" ]; then
-            echo "Creating sonar-project.properties file..."
-            cat > sonar-project.properties << EOF
-          sonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
-          sonar.projectName=simplon-finance4all-front-1
-          sonar.projectVersion=1.0
-          sonar.sources=src
-          sonar.exclusions=node_modules/**,dist/**,build/**,coverage/**
-          sonar.javascript.lcov.reportPaths=coverage/lcov.info
-          sonar.coverage.exclusions=**/*.test.js,**/*.spec.js
-          EOF
-          fi
-
       # CORRECTION: Utiliser l'action de scan SonarQube avec gestion d'erreur
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
