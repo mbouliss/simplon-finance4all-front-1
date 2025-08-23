@@ -258,7 +258,8 @@ jobs:
     name: 🚀 Push to DockerHub
     runs-on: ubuntu-latest
     needs: [security-scan, sonarqube]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
+    if: false  # Temporairement désactivé - changez en true quand DockerHub sera configuré
+    # if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
     steps:
       - name: Download Docker image
         uses: actions/download-artifact@v4
@@ -267,6 +268,16 @@ jobs:
 
       - name: Load Docker image
         run: docker load < docker-image-front-1.tar
+
+      - name: Check DockerHub credentials
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "❌ DockerHub credentials not configured"
+            echo "Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN"
+            exit 1
+          else
+            echo "✅ DockerHub credentials are configured"
+          fi
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
@@ -323,7 +334,7 @@ jobs:
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    needs: [docker-push, nexus-upload]
+    needs: [nexus-upload]  # Suppression de docker-push temporairement
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Deployment notification
