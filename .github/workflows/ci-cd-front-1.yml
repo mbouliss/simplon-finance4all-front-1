@@ -9,7 +9,7 @@ on:
 env:
   DOCKER_IMAGE_NAME: simplon-finance4all-front-1
   DOCKER_TAG: ${{ github.sha }}
-  NEXUS_REPOSITORY: simplon-finance4all-front-1
+  NEXUS_REPOSITORY: simplon-finance4all
   SONAR_PROJECT_KEY: simplon-finance4all
 
 jobs:
