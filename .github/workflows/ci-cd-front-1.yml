@@ -161,10 +161,8 @@ jobs:
 
   sonarqube:
     name: 📊 SonarQube Analysis
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Utiliser votre runner local
     needs: test
-    # Skip SonarQube for GitHub-hosted runners (can't access private IP)
-    if: false  # Désactiver temporairement
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -259,7 +257,7 @@ jobs:
   docker-push:
     name: 🚀 Push to DockerHub
     runs-on: ubuntu-latest
-    needs: [security-scan]  # Retirer sonarqube temporairement
+    needs: [security-scan, sonarqube]  # Remettre sonarqube
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
     steps:
       - name: Download Docker image
