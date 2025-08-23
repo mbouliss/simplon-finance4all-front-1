@@ -161,7 +161,7 @@ jobs:
 
   sonarqube:
     name: 📊 SonarQube Analysis
-    runs-on: self-hosted  # Utiliser votre runner local
+    runs-on: ubuntu-latest  # Revenir à ubuntu-latest car IP publique
     needs: test
     steps:
       - name: Checkout code
