@@ -136,7 +136,16 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}"
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.projectName=simplon-finance4all-front-1
+            -Dsonar.projectVersion=1.0
+            -Dsonar.sources=src
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=**/*.test.js,**/*.spec.js
+            -Dsonar.scm.provider=git
 
       - name: SonarQube Quality Gate check
         uses: SonarSource/sonarqube-quality-gate-action@v1
