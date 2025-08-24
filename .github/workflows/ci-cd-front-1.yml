@@ -334,14 +334,6 @@ jobs:
           echo "  - ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
           echo "  - ${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
 
-      - name: DockerHub push skipped
-        if: env.DOCKERHUB_CONFIGURED == 'false'
-        run: |
-          echo "⚠️ DockerHub push was skipped due to missing credentials"
-          echo "To enable DockerHub push, configure these secrets:"
-          echo "- DOCKERHUB_USERNAME"
-          echo "- DOCKERHUB_TOKEN"
-
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
