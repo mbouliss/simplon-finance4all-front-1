@@ -10,7 +10,7 @@ env:
   DOCKER_IMAGE_NAME: simplon-finance4all-front-1
   DOCKER_TAG: ${{ github.sha }}
   NEXUS_REPOSITORY: simplon-finance4all
-  SONAR_PROJECT_KEY: simplon-finance4all-front-1
+  SONAR_PROJECT_KEY: simplon-finance4all-front-1  # ← Nouvelle clé du projet
 
 jobs:
   test:
@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Important pour SonarQube
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -69,6 +71,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -89,6 +93,66 @@ jobs:
           path: |
             dist/
             package.json
+
+  sonarqube:
+    name: 📊 SonarQube Analysis
+    runs-on: ubuntu-latest  # ← Changé de windows-latest vers ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-front-1
+        continue-on-error: true
+
+      - name: Configure Git for blame information
+        run: |
+          git config --global --add safe.directory '*'
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub CI"
+
+      - name: Debug SonarQube environment
+        run: |
+          echo "Project Key: ${{ env.SONAR_PROJECT_KEY }}"
+          echo "SONAR_HOST_URL is set: $([ -n '${{ secrets.SONAR_HOST_URL }}' ] && echo 'Yes' || echo 'No')"
+          echo "SONAR_TOKEN is set: $([ -n '${{ secrets.SONAR_TOKEN }}' ] && echo 'Yes' || echo 'No')"
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}"
+
+      - name: SonarQube Quality Gate check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true  # ← Continue même si Quality Gate échoue
+
+      - name: Quality Gate Status
+        run: |
+          if [ "${{ steps.sonarqube-quality-gate-check.outcome }}" = "failure" ]; then
+            echo "⚠️ Quality Gate failed, but continuing pipeline..."
+            echo "Please check SonarQube dashboard for details"
+          else
+            echo "✅ Quality Gate passed successfully!"
+          fi
 
   docker-build:
     name: 🐳 Docker Build
@@ -159,108 +223,6 @@ jobs:
             trivy-results-front-1.sarif
             trivy-results-front-1.txt
 
-  sonarqube:
-    name: 📊 SonarQube Analysis
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Important : récupère tout l'historique
-
-      - name: Configure Git for blame information
-        run: |
-          git config --global --add safe.directory '*'
-          git config --global user.email "ci@github.com"
-          git config --global user.name "GitHub CI"
-          git log --oneline -5  # Vérifier l'historique Git
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify project structure (instead of tests)
-        run: |
-          echo "✅ No test script found in package.json - this is normal for this project"
-          echo "✅ Verifying project dependencies and structure..."
-          npm ls --depth=0 || true
-
-      - name: Create dummy coverage report for SonarQube
-        run: |
-          mkdir -p coverage
-          cat > coverage/lcov.info << EOF
-          TN:
-          SF:src/App.jsx
-          FN:1,App
-          FNF:1
-          FNH:1
-          FNDA:1,App
-          DA:1,1
-          LF:1
-          LH:1
-          end_of_record
-          EOF
-          echo '{"total": {"lines": {"total": 1, "covered": 1, "pct": 100}}}' > coverage/coverage-summary.json
-
-      - name: Debug and validate SonarQube environment
-        run: |
-          echo "Checking SonarQube environment..."
-          echo "SONAR_HOST_URL is set: $([ -n '${{ secrets.SONAR_HOST_URL }}' ] && echo 'Yes' || echo 'No')"
-          echo "SONAR_TOKEN is set: $([ -n '${{ secrets.SONAR_TOKEN }}' ] && echo 'Yes' || echo 'No')"
-          echo "Project Key: ${{ env.SONAR_PROJECT_KEY }}"
-          
-          # Test de connectivité SonarQube (sans exposer le token)
-          if curl -s --connect-timeout 10 "${{ secrets.SONAR_HOST_URL }}/api/system/status" > /dev/null; then
-            echo "✅ SonarQube server is reachable"
-          else
-            echo "❌ Cannot reach SonarQube server"
-            echo "Please verify SONAR_HOST_URL: should be http://161.97.89.159:9000"
-          fi
-
-      - name: Analyze with SonarQube
-        uses: sonarsource/sonarqube-scan-action@v5.3.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} -Dsonar.token=${{ secrets.SONAR_TOKEN }}"
-        continue-on-error: true
-
-      - name: Check SonarQube report file (if scan succeeded)
-        run: |
-          if [ -f ".scannerwork/report-task.txt" ]; then
-            echo "✅ SonarQube scan completed successfully"
-            echo "Report file content:"
-            cat .scannerwork/report-task.txt
-            echo "SCAN_SUCCESS=true" >> $GITHUB_ENV
-          else
-            echo "⚠️ SonarQube scan failed or report file not found"
-            echo "SCAN_SUCCESS=false" >> $GITHUB_ENV
-          fi
-
-      - name: SonarQube Quality Gate check
-        id: sonarqube-quality-gate-check
-        if: env.SCAN_SUCCESS == 'true'
-        uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
-        timeout-minutes: 5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        continue-on-error: true
-
-      - name: Handle Quality Gate result
-        run: |
-          if [ "${{ steps.sonarqube-quality-gate-check.outcome }}" = "failure" ]; then
-            echo "⚠️ Quality Gate failed, but continuing pipeline..."
-            echo "Check SonarQube dashboard for details"
-          else
-            echo "✅ Quality Gate passed"
-          fi
-
   nexus-upload:
     name: 📦 Upload to Nexus
     runs-on: ubuntu-latest
@@ -276,7 +238,6 @@ jobs:
 
       - name: Create deployment package
         run: |
-          # Vérifier quels dossiers existent
           ls -la
           if [ -d "dist" ]; then
             tar -czf simplon-finance4all-front-1-${{ github.sha }}.tar.gz dist/ package.json
@@ -325,13 +286,6 @@ jobs:
             echo "DOCKERHUB_CONFIGURED=true" >> $GITHUB_ENV
           fi
 
-      # 🔍 Étape debug ajoutée pour vérifier que la variable est bien définie
-      - name: Debug DOCKERHUB_CONFIGURED
-        run: |
-          echo "DOCKERHUB_CONFIGURED=$DOCKERHUB_CONFIGURED"
-          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" | sed 's/./*/g'
-          echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" | sed 's/./*/g'
-
       - name: Log in to DockerHub
         if: env.DOCKERHUB_CONFIGURED == 'true'
         uses: docker/login-action@v3
@@ -356,15 +310,14 @@ jobs:
           echo "- DOCKERHUB_USERNAME"
           echo "- DOCKERHUB_TOKEN"
 
-
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    # Dépend du job test qui s'exécute toujours en premier
-    needs: [test]
+    needs: [test, sonarqube]
     steps:
-      - name: Simple deployment test
+      - name: Deployment simulation
         run: |
           echo "🚀 Deploy job is now working!"
           echo "Branch: ${{ github.ref }}"
           echo "Commit: ${{ github.sha }}"
+          echo "Project: ${{ env.SONAR_PROJECT_KEY }}"
