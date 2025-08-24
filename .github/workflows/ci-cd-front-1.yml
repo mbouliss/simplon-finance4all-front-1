@@ -308,11 +308,31 @@ jobs:
       - name: Push to DockerHub
         if: env.DOCKERHUB_CONFIGURED == 'true'
         run: |
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-          echo "✅ Successfully pushed to DockerHub"
+          # Définir les variables pour éviter les erreurs de formatage
+          IMAGE_NAME="${{ env.DOCKER_IMAGE_NAME }}"
+          IMAGE_TAG="${{ env.DOCKER_TAG }}"
+          DOCKERHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          
+          echo "📋 Image info:"
+          echo "Local image: ${IMAGE_NAME}:${IMAGE_TAG}"
+          echo "DockerHub target: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+          
+          # Vérifier que l'image locale existe
+          docker images | grep "${IMAGE_NAME}" || (echo "❌ Local image not found" && exit 1)
+          
+          # Tag pour DockerHub
+          echo "🏷️ Tagging images..."
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+          
+          # Push vers DockerHub
+          echo "🚀 Pushing to DockerHub..."
+          docker push "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+          docker push "${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+          
+          echo "✅ Successfully pushed to DockerHub:"
+          echo "  - ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+          echo "  - ${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
 
       - name: DockerHub push skipped
         if: env.DOCKERHUB_CONFIGURED == 'false'
