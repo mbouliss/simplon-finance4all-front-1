@@ -289,9 +289,12 @@ jobs:
           if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
             echo "❌ DockerHub credentials not configured"
             echo "Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN"
+            echo "Please add these secrets in GitHub repo Settings → Secrets and variables → Actions"
             echo "DOCKERHUB_CONFIGURED=false" >> $GITHUB_ENV
           else
             echo "✅ DockerHub credentials are configured"
+            echo "Username: ${{ secrets.DOCKERHUB_USERNAME }}"
+            echo "Token: [HIDDEN FOR SECURITY]"
             echo "DOCKERHUB_CONFIGURED=true" >> $GITHUB_ENV
           fi
 
