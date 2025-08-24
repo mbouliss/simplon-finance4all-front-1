@@ -208,7 +208,14 @@ jobs:
           name: docker-image-front-1
 
       - name: Load Docker image
-        run: docker load < docker-image-front-1.tar
+        run: |
+          echo "📦 Loading Docker image from artifact..."
+          docker load < docker-image-front-1.tar
+          
+          echo "🔍 Listing available Docker images:"
+          docker images
+          
+          echo "✅ Docker image loaded successfully"
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -308,27 +315,37 @@ jobs:
       - name: Push to DockerHub
         if: env.DOCKERHUB_CONFIGURED == 'true'
         run: |
-          # Définir les variables pour éviter les erreurs de formatage
-          IMAGE_NAME="${{ env.DOCKER_IMAGE_NAME }}"
-          IMAGE_TAG="${{ env.DOCKER_TAG }}"
-          DOCKERHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          # Nettoyer les variables pour éviter les caractères invisibles
+          IMAGE_NAME=$(echo "${{ env.DOCKER_IMAGE_NAME }}" | tr -d '\n\r\t ')
+          IMAGE_TAG=$(echo "${{ env.DOCKER_TAG }}" | tr -d '\n\r\t ')
+          DOCKERHUB_USER=$(echo "${{ secrets.DOCKERHUB_USERNAME }}" | tr -d '\n\r\t ')
           
-          echo "📋 Image info:"
+          echo "📋 Image info (cleaned):"
           echo "Local image: ${IMAGE_NAME}:${IMAGE_TAG}"
           echo "DockerHub target: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+          echo "DockerHub user length: ${#DOCKERHUB_USER}"
           
           # Vérifier que l'image locale existe
-          docker images | grep "${IMAGE_NAME}" || (echo "❌ Local image not found" && exit 1)
+          if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "${IMAGE_NAME}:${IMAGE_TAG}"; then
+            echo "❌ Local image ${IMAGE_NAME}:${IMAGE_TAG} not found"
+            echo "Available images:"
+            docker images --format "{{.Repository}}:{{.Tag}}"
+            exit 1
+          fi
           
-          # Tag pour DockerHub
+          # Tag pour DockerHub avec validation
           echo "🏷️ Tagging images..."
-          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}" || exit 1
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${DOCKERHUB_USER}/${IMAGE_NAME}:latest" || exit 1
+          
+          # Vérifier que les tags ont été créés
+          echo "🔍 Verifying tagged images:"
+          docker images | grep "${DOCKERHUB_USER}/${IMAGE_NAME}" || exit 1
           
           # Push vers DockerHub
           echo "🚀 Pushing to DockerHub..."
-          docker push "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-          docker push "${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+          docker push "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}" || exit 1
+          docker push "${DOCKERHUB_USER}/${IMAGE_NAME}:latest" || exit 1
           
           echo "✅ Successfully pushed to DockerHub:"
           echo "  - ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
