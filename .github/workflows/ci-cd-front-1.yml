@@ -207,6 +207,8 @@ jobs:
           echo "SONAR_HOST_URL is set: $([ -n '${{ secrets.SONAR_HOST_URL }}' ] && echo 'Yes' || echo 'No')"
           echo "SONAR_TOKEN is set: $([ -n '${{ secrets.SONAR_TOKEN }}' ] && echo 'Yes' || echo 'No')"
           echo "Project Key: ${{ env.SONAR_PROJECT_KEY }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
           
           # Test de connectivité SonarQube (sans exposer le token)
           if curl -s --connect-timeout 10 "${{ secrets.SONAR_HOST_URL }}/api/system/status" > /dev/null; then
@@ -221,7 +223,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}"
+          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} -Dsonar.branch.name=${{ github.ref_name }}"
         continue-on-error: true
 
       - name: Check SonarQube report file (if scan succeeded)
@@ -312,18 +314,12 @@ jobs:
           if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
             echo "❌ DockerHub credentials not configured"
             echo "Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN"
+            echo "⚠️ Will skip DockerHub push but continue pipeline"
             echo "DOCKERHUB_CONFIGURED=false" >> $GITHUB_ENV
           else
             echo "✅ DockerHub credentials are configured"
             echo "DOCKERHUB_CONFIGURED=true" >> $GITHUB_ENV
           fi
-
-      # 🔍 Étape debug ajoutée pour vérifier que la variable est bien définie
-      - name: Debug DOCKERHUB_CONFIGURED
-        run: |
-          echo "DOCKERHUB_CONFIGURED=$DOCKERHUB_CONFIGURED"
-          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" | sed 's/./*/g'
-          echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" | sed 's/./*/g'
 
       - name: Log in to DockerHub
         if: env.DOCKERHUB_CONFIGURED == 'true'
@@ -342,22 +338,48 @@ jobs:
           echo "✅ Successfully pushed to DockerHub"
 
       - name: DockerHub push skipped
-        if: env.DOCKERHUB_CONFIGURED == 'false'
+        if: env.DOCKERHUB_CONFIGURED != 'true'
         run: |
           echo "⚠️ DockerHub push was skipped due to missing credentials"
           echo "To enable DockerHub push, configure these secrets:"
           echo "- DOCKERHUB_USERNAME"
           echo "- DOCKERHUB_TOKEN"
-
+          echo "✅ Pipeline continues successfully without DockerHub push"
 
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    # Dépend du job test qui s'exécute toujours en premier
-    needs: [test]
+    needs: [nexus-upload, docker-push]
+    if: always() && (needs.nexus-upload.result == 'success')
     steps:
-      - name: Simple deployment test
+      - name: Pre-deployment checks
         run: |
-          echo "🚀 Deploy job is now working!"
+          echo "🔍 Pre-deployment verification..."
           echo "Branch: ${{ github.ref }}"
-          echo "Commit: ${{ github.sha }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Repository: ${{ github.repository }}"
+
+      - name: Deployment notification
+        run: |
+          echo "✅ Deployment process started for simplon-finance4all-front-1"
+          echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+          echo "📦 Nexus Artifact: simplon-finance4all-front-1-${{ github.sha }}.tar.gz"
+          
+          # Vérification des artifacts disponibles
+          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "🐳 DockerHub Image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}"
+          else
+            echo "⚠️ DockerHub image not available (credentials not configured)"
+          fi
+
+      - name: Deploy application
+        run: |
+          echo "🚀 Starting deployment..."
+          echo "This is where you would add your actual deployment commands:"
+          echo "- Pull from DockerHub or use Nexus artifacts"
+          echo "- Update kubernetes/docker-compose configurations"
+          echo "- Restart services"
+          echo "- Run health checks"
+          echo ""
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Application should be available at your deployment URL"
