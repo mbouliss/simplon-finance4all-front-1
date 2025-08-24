@@ -10,7 +10,7 @@ env:
   DOCKER_IMAGE_NAME: simplon-finance4all-front-1
   DOCKER_TAG: ${{ github.sha }}
   NEXUS_REPOSITORY: simplon-finance4all
-  SONAR_PROJECT_KEY: simplon-finance4all
+  SONAR_PROJECT_KEY: simplon-finance4all-front-1
 
 jobs:
   test:
@@ -167,7 +167,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Important : récupère tout l'historique
+
+      - name: Configure Git for blame information
+        run: |
+          git config --global --add safe.directory '*'
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub CI"
+          git log --oneline -5  # Vérifier l'historique Git
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -221,7 +228,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}"
+          SONAR_SCANNER_OPTS: "-Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} -Dsonar.token=${{ secrets.SONAR_TOKEN }}"
         continue-on-error: true
 
       - name: Check SonarQube report file (if scan succeeded)
